@@ -52,9 +52,13 @@ DRIFT_FENCE_BEGIN = "<!-- ARCH-LOGGER:BEGIN drift-log -->"
 DRIFT_FENCE_END = "<!-- ARCH-LOGGER:END drift-log -->"
 
 # A Bash command counts as a commit attempt when `git ... commit` appears as an
-# actual command, not merely as text inside an echo. This is only a cheap
-# pre-filter -- guard 4 below is what actually establishes that a commit landed.
-COMMIT_PATTERN = re.compile(r"(?:^|[\s;&|(])git\s+(?:-[^\s]+\s+)*commit\b")
+# actual command, not merely as text inside an echo. The inner group tolerates
+# flags that take a value, so `git -C . commit` and `git -c user.name=X commit`
+# both match. This is only a cheap pre-filter -- guard 4 below is what actually
+# establishes that a commit landed.
+COMMIT_PATTERN = re.compile(
+    r"(?:^|[\s;&|(])git\s+(?:-{1,2}[^\s]+\s+(?:[^-\s]\S*\s+)?)*commit\b"
+)
 
 # Fallback module map, used only when a components/ file omits its Scope line.
 DEFAULT_SCOPES = {
@@ -293,9 +297,10 @@ def main() -> int:
     # ---- Guard 2: does the command plausibly commit? ----------------------
     # Cheap text filter. Deliberately not trusted on its own: `echo "git commit"`
     # would slip past a naive version of this, and a failed commit would too.
+    # Note there is no --dry-run check here. A dry run does not move HEAD, so
+    # guard 4 already rejects it -- and an early exit on the string would have
+    # discarded real commits whose message happens to contain "--dry-run".
     if not COMMIT_PATTERN.search(command):
-        return 0
-    if "--dry-run" in command:
         return 0
 
     # ---- Locate the repository and its records ----------------------------
@@ -326,13 +331,41 @@ def main() -> int:
                 state = json.loads(state_path.read_text(encoding="utf-8"))
             except Exception:
                 state = {}
-        if state.get("last_seen_sha") == head:
+
+        previous = state.get("last_seen_sha")
+
+        # First sighting in this working copy. .state.json is per-clone and
+        # gitignored, so a fresh clone has none: we cannot tell whether HEAD is
+        # new or pre-existing. Establish a baseline and flag nothing. Without
+        # this, the first Bash call that merely mentions committing would
+        # attribute the already-present HEAD as fresh drift.
+        if not previous:
+            try:
+                state_path.write_text(
+                    json.dumps(
+                        {"last_seen_sha": head, "last_seen_at": utc_now()}, indent=2
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+            except Exception:
+                pass
             return 0
 
-        # ---- What changed in that commit? --------------------------------
-        raw = run_git(
-            repo_root, "show", "--name-only", "--pretty=format:", head
-        )
+        if previous == head:
+            return 0
+
+        # ---- What changed since the last commit we processed? -------------
+        # Every commit in the range, not just HEAD. A commit can be missed
+        # entirely when the hook never fires for it -- PostToolUse runs only
+        # after a *successful* tool call, so `git commit && git push` where the
+        # push fails produces a real commit the hook never saw. Diffing from the
+        # last processed SHA picks those up on the next detection.
+        raw = run_git(repo_root, "diff", "--name-only", f"{previous}..{head}")
+        if not raw:
+            raw = run_git(
+                repo_root, "show", "--name-only", "--pretty=format:", head
+            )
         if not raw:
             raw = run_git(
                 repo_root,

@@ -27,7 +27,8 @@ Module classification was checked against a negative case as well as a positive
 one. Run against a bare `uv init` project, `/arch_init` returns `fe`, `be`, `db`,
 `api` and `tests` as `missing`, each stub enumerating the evidence that was
 looked for and not found, and creates no `infra` module at all — nothing is
-fabricated to fill a slot. Run against the demo application, `/arch_check`
+fabricated to fill a slot. That run is captured in `examples/no-frontend/` rather
+than merely asserted here. Run against the demo application, `/arch_check`
 reconciled a real change and surfaced two defects nobody asked it to look for: a
 new `EmptyTitleError` that is never re-exported, so the API layer has no `except`
 clause for it and a whitespace-only title becomes a 500 where the parallel
@@ -74,6 +75,44 @@ that do not match the literal pattern — `git -C . commit`, a commit behind an
 alias — and a hook that silently never fires is indistinguishable from a broken
 one. Roughly 40ms of process spawn on unrelated Bash calls is invisible; a
 missed commit during a demo is not. Correctness over the microoptimisation.
+
+### Edges the detection handles
+
+Removing the declarative filter only moves the problem into the script, so the
+three ways a naive implementation loses or invents a commit are handled
+explicitly:
+
+**Flags that take a value.** The text pre-filter tolerates them, so
+`git -C . commit` and `git -c user.name=X commit` match. An earlier version did
+not, which would have reproduced inside the script exactly the failure I removed
+the `if` field to avoid.
+
+**Commits the hook never saw.** `PostToolUse` fires only after a *successful*
+tool call, so `git commit && git push` where the push fails produces a real
+commit the hook is never told about. Rather than inspecting HEAD alone, the
+script diffs from the last SHA it processed to HEAD, so anything skipped is
+picked up at the next detection.
+
+The same recovery covers a larger blind spot I did not design for and then
+observed: the hook sees only commits made *through Claude Code's Bash tool*, so
+any commit typed in the user's own terminal is invisible at the time it happens.
+With the range diff in place, the next detection inside a session reconciles the
+whole backlog at once — four such commits surfaced as a single drift event
+naming six modules, each mapped correctly to the files it owned. The behaviour is
+right, and the consequence is worth stating plainly: drift is detected when the
+plugin next looks, not when the code moved, and a batch of external work arrives
+as one event rather than several.
+
+**A first sighting in a fresh clone.** `.state.json` is per-clone and gitignored,
+so a clone has no record of what has already been processed. Treating an unknown
+state as "HEAD is new" would let the first Bash call that merely mentions
+committing attribute the pre-existing HEAD as fresh drift. Instead the first
+sighting writes a baseline and flags nothing.
+
+There is deliberately no `--dry-run` check. A dry run does not move HEAD, so the
+SHA guard already rejects it — and an early exit on that string would have
+discarded real commits whose message happened to contain it. Where one guard
+subsumes another, the weaker one is a liability rather than defence in depth.
 
 ## Why commands are flat files and knowledge is a skill
 
@@ -209,6 +248,24 @@ fences into somebody's prose so the tool can claim part of it, is worse: it edit
 writing the user did not offer up. `documentation.md` stays machine-maintained
 and carries the same facts, so nothing is lost except the automation of one file
 the user asked to keep.
+
+`/arch_make_documentation` can invalidate the very records it renders from, and
+nothing flags it. It creates `README.md` files; the `usage` record states which
+project-level files exist; so generating documentation can make an absence claim
+in `usage.md` false the moment it runs. The commit that adds those files does
+fire the hook, but only flags a module whose Scope globs match — so the fix is
+for `usage` to own `README.md` and `documentation.md`, which it now does. The
+general shape of the problem remains: a command that writes files can contradict
+a record, and the drift mechanism only notices when the written paths fall
+inside some module's scope. `/arch_make_documentation` should re-open the `usage`
+record it just changed the world for, and does not.
+
+The converse also holds and is noisier: because that command writes READMEs into
+module-owned directories, the commit that lands them flags every module it wrote
+into. The hook cannot distinguish a generated document from source. The fix is a
+hook-side exclusion rather than a narrower Scope line — dropping the READMEs from
+Scope would leave them owned by nobody, which is a worse failure than a
+reconcile that finds nothing to change.
 
 ## With another hour
 
