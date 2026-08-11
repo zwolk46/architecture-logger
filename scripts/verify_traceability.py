@@ -107,11 +107,13 @@ def clean_cell(raw: str) -> str:
     # [text](target) -> text
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = text.replace("`", "").strip()
-    # Paired asterisk emphasis only.
+    # Paired asterisk emphasis only, and only when the payload does not itself
+    # contain asterisks: `**/api/**` is a glob, not a bolded `/api/`.
     for pattern in (r"\*\*(.+)\*\*", r"\*(.+)\*"):
         match = re.fullmatch(pattern, text, re.DOTALL)
-        if match:
+        if match and "*" not in match.group(1):
             text = match.group(1).strip()
+            break
     return text.strip()
 
 

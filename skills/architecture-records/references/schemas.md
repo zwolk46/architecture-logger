@@ -394,8 +394,7 @@ brief's own. In real output every `Location` is read from the file it cites
 
 <!-- ARCH-LOGGER:BEGIN purpose -->
 **Scope:** `src/todo/services/**`, `src/todo/domain/**`
-**Entry points:** `src/todo/services/tasks.py` and `src/todo/services/lists.py`,
-called from the API routers; nothing else imports this package.
+**Entry points:** `src/todo/services/tasks.py`, `src/todo/services/lists.py` — called from the API routers; nothing else imports this package.
 
 ## Idea
 The only layer permitted to change state. Routers translate HTTP into calls
