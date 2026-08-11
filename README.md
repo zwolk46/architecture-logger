@@ -120,7 +120,7 @@ fails.
 ## Demo repository
 
 A worked example — a small FastAPI + uv TODO application with generated records
-and documentation — lives at DEMO_REPO_URL.
+and documentation — lives at https://github.com/zwolk46/todo-app-arch-demo.
 
 ## Notes
 

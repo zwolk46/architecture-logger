@@ -23,6 +23,17 @@ citation, and checks the symbol is really within five lines of it. Both
 Context7 is declared, connects, and is consulted only inside the boundary the
 skill defines.
 
+Module classification was checked against a negative case as well as a positive
+one. Run against a bare `uv init` project, `/arch_init` returns `fe`, `be`, `db`,
+`api` and `tests` as `missing`, each stub enumerating the evidence that was
+looked for and not found, and creates no `infra` module at all — nothing is
+fabricated to fill a slot. Run against the demo application, `/arch_check`
+reconciled a real change and surfaced two defects nobody asked it to look for: a
+new `EmptyTitleError` that is never re-exported, so the API layer has no `except`
+clause for it and a whitespace-only title becomes a 500 where the parallel
+`DueDateInPastError` becomes a 422; and a module docstring still describing the
+old single-invariant design.
+
 The plugin adds roughly 275 tokens to every session, all of it skill and command
 listing text; the hook costs nothing in model context because it runs in the
 harness.
@@ -181,6 +192,23 @@ in the report header so a failure is interpretable.
 The hook only knows a module is *unverified*, never that it is wrong. That is a
 deliberate limit of the flag-and-defer design, and it is why `drift` means "not
 checked since the code moved" rather than "incorrect".
+
+`/arch_check` reconciles only the modules named in the queue, which is what keeps
+it cheap — but repo-level prose in `architecture.md` sits outside every module
+and can therefore lag a reconciled record. In the demo run, the Backend record
+and its index row both learned about a second invariant while the Purpose
+paragraph still said the system had one. `/arch_init` regenerates that paragraph;
+`/arch_check` should widen to it when a reconciled module's summary changes, and
+does not yet.
+
+Protecting a hand-written file is permanent, and deliberately so. A `README.md`
+with no fence markers is treated as entirely human-authored, so declining the
+overwrite once means every later run asks again rather than updating it — the
+facts in that file become the author's to maintain. The alternative, injecting
+fences into somebody's prose so the tool can claim part of it, is worse: it edits
+writing the user did not offer up. `documentation.md` stays machine-maintained
+and carries the same facts, so nothing is lost except the automation of one file
+the user asked to keep.
 
 ## With another hour
 
