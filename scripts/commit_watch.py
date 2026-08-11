@@ -199,6 +199,10 @@ def append_drift_log(component_path: Path, entry: str) -> None:
 
     line = f"- {entry}\n"
 
+    # Drop the placeholder /arch_init writes into an empty drift log, so the
+    # file never reads "no drift recorded" immediately above a drift entry.
+    text = re.sub(r"^_No drift recorded\._[ \t]*\n?", "", text, flags=re.MULTILINE)
+
     if DRIFT_FENCE_END in text:
         text = text.replace(DRIFT_FENCE_END, line + DRIFT_FENCE_END, 1)
     elif re.search(r"^##\s+Drift log\s*$", text, re.MULTILINE):
