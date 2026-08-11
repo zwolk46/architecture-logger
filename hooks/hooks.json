@@ -7,7 +7,6 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(git commit *)",
             "command": "python3",
             "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/commit_watch.py"],
             "timeout": 20
