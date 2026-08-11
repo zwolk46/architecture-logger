@@ -111,6 +111,21 @@ Every rewrite is preceded by a copy into `.architecture/.backups/<timestamp>/`,
 and each command reports how many human-authored regions it preserved, so the
 contract is observable rather than merely promised.
 
+### Structurally idempotent, not byte-identical
+
+Running `/arch_init` twice leaves the structure fixed — no duplicated sections,
+no lost human prose, the same headings and tables in the same order — but the
+generated prose inside a fence is regenerated and will differ between runs.
+
+This is the intended behaviour rather than a gap. On the second run against the
+demo repository, two of the four changed files were corrections: a citation moved
+from `docker-compose.yml:14-17` to `:15-17`, and a claim that the ORM and the
+migration disagreed about column nullability was retracted once the second pass
+established that they agree and the real divergence is in defaults. A record that
+refuses to change cannot correct itself. The brief requires that a second run not
+duplicate sections and not discard human writing; it does not require byte
+equality, and byte equality would cost the ability to improve.
+
 ## The `/arch_summary` pager
 
 The brief asks for a `less`-style scroll. Claude Code's Bash tool is
