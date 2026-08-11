@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "architecture-logger",
+  "displayName": "Architecture Logger",
+  "version": "0.1.0",
+  "description": "Generates and maintains living architecture records in .architecture/ for Python + uv repositories.",
+  "author": {
+    "name": "z46b23",
+    "email": "zacharywolk05@gmail.com"
+  },
+  "license": "MIT",
+  "keywords": ["architecture", "documentation", "python", "uv"]
+}

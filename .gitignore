@@ -1,0 +1,5 @@
+.exam/
+
+__pycache__/
+*.pyc
+.venv/
